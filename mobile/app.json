@@ -24,7 +24,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "WA Summarizer",
+      "shortName": "WA Summary",
+      "description": "Summarise your WhatsApp chats with a local AI",
+      "themeColor": "#25D366",
+      "backgroundColor": "#ffffff"
     },
     "plugins": [
       "expo-secure-store",

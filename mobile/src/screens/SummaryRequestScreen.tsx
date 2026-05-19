@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, Platform, ActivityIndicator,
+  ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { requestSummary } from '../api/client';
 import { RootStackParamList } from '../navigation/types';
+import DatePicker from '../components/DatePicker';
 
 const LANGUAGES = [
   'English', 'Russian', 'Hebrew', 'Spanish', 'French',
@@ -28,11 +28,7 @@ export default function SummaryRequestScreen({ navigation, route }: Props) {
   });
   const [dateTo, setDateTo] = useState(new Date());
   const [language, setLanguage] = useState('English');
-  const [showFrom, setShowFrom] = useState(false);
-  const [showTo, setShowTo] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
   const handleSubmit = async () => {
     if (dateFrom >= dateTo) { Alert.alert('Invalid range', '"From" must be before "To"'); return; }
@@ -57,22 +53,10 @@ export default function SummaryRequestScreen({ navigation, route }: Props) {
       <Text style={styles.chatName}>{chatName}</Text>
 
       <Text style={styles.label}>From</Text>
-      <TouchableOpacity style={styles.dateButton} onPress={() => setShowFrom(true)}>
-        <Text style={styles.dateText}>{fmt(dateFrom)}</Text>
-      </TouchableOpacity>
-      {showFrom && (
-        <DateTimePicker value={dateFrom} mode="date" maximumDate={dateTo}
-          onChange={(_, d) => { setShowFrom(Platform.OS === 'ios'); if (d) setDateFrom(d); }} />
-      )}
+      <DatePicker value={dateFrom} onChange={setDateFrom} maximumDate={dateTo} />
 
       <Text style={styles.label}>To</Text>
-      <TouchableOpacity style={styles.dateButton} onPress={() => setShowTo(true)}>
-        <Text style={styles.dateText}>{fmt(dateTo)}</Text>
-      </TouchableOpacity>
-      {showTo && (
-        <DateTimePicker value={dateTo} mode="date" minimumDate={dateFrom} maximumDate={new Date()}
-          onChange={(_, d) => { setShowTo(Platform.OS === 'ios'); if (d) setDateTo(d); }} />
-      )}
+      <DatePicker value={dateTo} onChange={setDateTo} minimumDate={dateFrom} maximumDate={new Date()} />
 
       <Text style={styles.label}>Language</Text>
       <View style={styles.langGrid}>
@@ -102,8 +86,6 @@ const styles = StyleSheet.create({
   content: { padding: 24 },
   chatName: { fontSize: 20, fontWeight: '700', color: '#1a1a1a', marginBottom: 24 },
   label: { fontSize: 13, fontWeight: '600', color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  dateButton: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, marginBottom: 20 },
-  dateText: { fontSize: 16, color: '#1a1a1a' },
   langGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 32 },
   langChip: { borderWidth: 1, borderColor: '#ddd', borderRadius: 20,
     paddingVertical: 7, paddingHorizontal: 14 },
