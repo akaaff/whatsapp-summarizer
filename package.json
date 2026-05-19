@@ -1,9 +1,8 @@
 {
   "name": "whatsapp-summarizer",
   "private": true,
-  "workspaces": ["api", "mobile"],
   "scripts": {
-    "api": "npm run dev --workspace=api",
-    "test": "npm test --workspace=api"
+    "api": "cd api && npm run dev",
+    "test": "cd api && npm test"
   }
 }
