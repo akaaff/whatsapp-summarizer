@@ -1,9 +1,13 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
-// Change this to your server's LAN IP when testing on a physical device
-// e.g. 'http://192.168.1.100:3000'
-export const API_BASE_URL = 'http://localhost:3000';
+// Web: empty base URL so requests go to the same origin the app is served from.
+// Native: set EXPO_PUBLIC_API_URL in mobile/.env (e.g. http://192.168.1.100:3000).
+export const API_BASE_URL =
+  Platform.OS === 'web'
+    ? ''
+    : (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000');
 
 const client = axios.create({ baseURL: API_BASE_URL });
 
