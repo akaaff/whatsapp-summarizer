@@ -7,4 +7,5 @@ export type RootStackParamList = {
   SummaryResult: { requestId: string; chatName: string; language: string };
   SummaryHistory: undefined;
   LinkWhatsApp: undefined;
+  Search: { chatId: string; chatName: string };
 };

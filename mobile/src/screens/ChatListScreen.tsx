@@ -74,6 +74,16 @@ export default function ChatListScreen({ navigation }: Props) {
                 <Text style={styles.name} numberOfLines={1}>{chatName(item.chat_id)}</Text>
                 <Text style={styles.meta}>{item.message_count} messages · Last: {formatDate(item.last_message_at)}</Text>
               </View>
+              <TouchableOpacity
+                style={styles.searchIcon}
+                onPress={() => navigation.navigate('Search', {
+                  chatId: item.chat_id,
+                  chatName: chatName(item.chat_id),
+                })}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.searchIconText}>🔍</Text>
+              </TouchableOpacity>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
           )}
@@ -100,5 +110,7 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   name: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 2 },
   meta: { fontSize: 13, color: '#888' },
+  searchIcon: { padding: 4, marginRight: 8 },
+  searchIconText: { fontSize: 18 },
   chevron: { fontSize: 22, color: '#ccc' },
 });

@@ -44,6 +44,10 @@ export const requestSummary = (
 export const getSummary = (id: string) => client.get(`/summaries/${id}`);
 export const listSummaries = () => client.get('/summaries');
 
+// Search
+export const searchMessages = (chat_id: string, query: string) =>
+  client.post('/search', { chat_id, query });
+
 export type SseProgressEvent =
   | { type: 'progress'; done: number; total: number }
   | { type: 'done' }
