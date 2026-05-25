@@ -17,14 +17,76 @@ export function formatMessage(msg: Message): string {
   return `[${time}] ${msg.sender}: ${msg.body}`;
 }
 
+// Split text at sentence boundaries, keeping each part under maxChars.
+// Falls back to word boundary, then hard cut, if no sentence end is found.
+function splitAtSentences(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text];
+
+  const parts: string[] = [];
+  let start = 0;
+
+  while (start < text.length) {
+    if (text.length - start <= maxChars) {
+      parts.push(text.slice(start));
+      break;
+    }
+
+    const window = text.slice(start, start + maxChars);
+
+    // Find the last sentence-ending position within the window:
+    // ., !, or ? optionally followed by a closing quote/paren/angle, then whitespace.
+    const re = /[.!?][)"'»]?\s+/g;
+    let lastBoundary = -1;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(window)) !== null) {
+      lastBoundary = m.index + m[0].length;
+    }
+
+    if (lastBoundary > 0) {
+      parts.push(text.slice(start, start + lastBoundary).trimEnd());
+      start += lastBoundary;
+    } else {
+      // No sentence boundary — fall back to last word boundary
+      const spaceIdx = window.lastIndexOf(' ');
+      if (spaceIdx > 0) {
+        parts.push(text.slice(start, start + spaceIdx));
+        start += spaceIdx + 1;
+      } else {
+        parts.push(window);
+        start += maxChars;
+      }
+    }
+
+    // Skip any leading whitespace at the new start position
+    while (start < text.length && text[start] === ' ') start++;
+  }
+
+  return parts.filter(p => p.length > 0);
+}
+
 export function chunkMessages(messages: Message[]): string[][] {
-  const lines = messages.map(formatMessage);
+  // Expand messages whose formatted line exceeds CHUNK_CHAR_LIMIT into
+  // sentence-split sub-lines, each sharing the original timestamp/sender prefix.
+  const lines: string[] = [];
+  for (const msg of messages) {
+    const formatted = formatMessage(msg);
+    if (formatted.length <= CHUNK_CHAR_LIMIT) {
+      lines.push(formatted);
+      continue;
+    }
+    const time = new Date(msg.timestamp).toISOString().slice(0, 16).replace('T', ' ');
+    const prefix = `[${time}] ${msg.sender}: `;
+    const maxBody = Math.max(CHUNK_CHAR_LIMIT - prefix.length, 500);
+    for (const part of splitAtSentences(msg.body, maxBody)) {
+      lines.push(prefix + part);
+    }
+  }
+
   const chunks: string[][] = [];
   let current: string[] = [];
   let currentChars = 0;
 
   for (const line of lines) {
-    // If adding this line exceeds the limit, save current chunk and start a new one with overlap
     if (currentChars + line.length > CHUNK_CHAR_LIMIT && current.length > 0) {
       chunks.push(current);
 
