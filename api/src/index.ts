@@ -9,6 +9,7 @@ import authRouter from './routes/auth';
 import healthRouter from './routes/health';
 import whatsappRouter from './routes/whatsapp';
 import summariesRouter from './routes/summaries';
+import searchRouter from './routes/search';
 import { sessionManager } from './whatsapp/SessionManager';
 
 const app = express();
@@ -25,12 +26,14 @@ app.use('/health', healthRouter);
 app.use('/auth', authRouter);
 app.use('/whatsapp', whatsappRouter);
 app.use('/summaries', summariesRouter);
+app.use('/search', searchRouter);
 
 // SPA fallback — serve index.html for all non-API routes
 if (fs.existsSync(webDistPath)) {
   app.use((req, res, next) => {
     if (req.path.startsWith('/auth') || req.path.startsWith('/health') ||
-        req.path.startsWith('/whatsapp') || req.path.startsWith('/summaries')) {
+        req.path.startsWith('/whatsapp') || req.path.startsWith('/summaries') ||
+        req.path.startsWith('/search')) {
       return next();
     }
     res.sendFile(path.join(webDistPath, 'index.html'));
