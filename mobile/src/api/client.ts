@@ -43,3 +43,51 @@ export const requestSummary = (
 
 export const getSummary = (id: string) => client.get(`/summaries/${id}`);
 export const listSummaries = () => client.get('/summaries');
+
+export type SseProgressEvent =
+  | { type: 'progress'; done: number; total: number }
+  | { type: 'done' }
+  | { type: 'error'; message: string };
+
+export function subscribeProgress(
+  requestId: string,
+  onEvent: (event: SseProgressEvent) => void,
+): () => void {
+  const ctrl = new AbortController();
+
+  (async () => {
+    try {
+      const token = await SecureStore.getItemAsync('jwt_token');
+      if (ctrl.signal.aborted) return;
+
+      const res = await fetch(`${API_BASE_URL}/summaries/${requestId}/progress`, {
+        headers: {
+          Authorization: `Bearer ${token ?? ''}`,
+          Accept: 'text/event-stream',
+        },
+        signal: ctrl.signal,
+      });
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (!ctrl.signal.aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try { onEvent(JSON.parse(line.slice(6))); } catch {}
+          }
+        }
+      }
+    } catch {
+      // Abort or network error — ignore
+    }
+  })();
+
+  return () => ctrl.abort();
+}

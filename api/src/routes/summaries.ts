@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { pool } from '../db/pool';
 import { runPipeline } from '../summary/pipeline';
+import { progressRegistry, SseEvent } from '../summary/ProgressEmitter';
 import { Message } from '../summary/chunker';
 
 const router = Router();
@@ -37,6 +38,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
 
   // Run pipeline in background — don't await
   runSummaryAsync(userId, requestId, chat_id, from, to, language);
+
 });
 
 async function runSummaryAsync(
@@ -57,20 +59,66 @@ async function runSummaryAsync(
       [userId, chatId, from, to]
     );
 
-    const result = await runPipeline(rows, language);
+    const result = await runPipeline(rows, language, (done, total) => {
+      progressRegistry.emit(requestId, { type: 'progress', done, total });
+    });
 
     await pool.query(
       `UPDATE summary_requests SET status = 'done', result = $1 WHERE id = $2`,
       [result, requestId]
     );
+    progressRegistry.emit(requestId, { type: 'done' });
   } catch (err: any) {
     console.error(`Summary ${requestId} failed:`, err.message);
     await pool.query(
       `UPDATE summary_requests SET status = 'failed', result = $1 WHERE id = $2`,
       [err.message, requestId]
     );
+    progressRegistry.emit(requestId, { type: 'error', message: err.message });
   }
 }
+
+// SSE progress stream for a summary
+router.get('/:id/progress', async (req: AuthRequest, res: Response): Promise<void> => {
+  const { rows } = await pool.query(
+    `SELECT status, result FROM summary_requests WHERE id = $1 AND user_id = $2`,
+    [req.params.id, req.userId]
+  );
+  if (!rows[0]) {
+    res.status(404).json({ error: 'Summary not found' });
+    return;
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (event: SseEvent) => res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+  const { status, result } = rows[0];
+  if (status === 'done') {
+    send({ type: 'done' });
+    res.end();
+    return;
+  }
+  if (status === 'failed') {
+    send({ type: 'error', message: result });
+    res.end();
+    return;
+  }
+
+  const unsubscribe = progressRegistry.subscribe(String(req.params.id), (event) => {
+    send(event);
+    if (event.type === 'done' || event.type === 'error') {
+      unsubscribe();
+      res.end();
+    }
+  });
+
+  const timeout = setTimeout(() => { unsubscribe(); res.end(); }, 10 * 60 * 1000);
+  req.on('close', () => { unsubscribe(); clearTimeout(timeout); });
+});
 
 // Get a specific summary by ID
 router.get('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
