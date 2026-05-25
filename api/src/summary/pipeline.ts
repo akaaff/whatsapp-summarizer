@@ -2,6 +2,8 @@ import { generate } from './OllamaClient';
 import { chunkMessages, Message } from './chunker';
 import { ollamaQueue } from './RequestQueue';
 
+type ProgressCallback = (done: number, total: number) => void;
+
 async function summariseChunk(lines: string[], index: number, total: number): Promise<string> {
   const text = lines.join('\n');
   const prompt =
@@ -32,7 +34,8 @@ async function reduceSummaries(
 
 export async function runPipeline(
   messages: Message[],
-  language: string
+  language: string,
+  onProgress?: ProgressCallback
 ): Promise<string> {
   if (messages.length === 0) {
     throw new Error('No messages found in the selected date range');
@@ -48,12 +51,21 @@ export async function runPipeline(
       `Cover the main topics, decisions, and key information.\n` +
       `Respond entirely in ${language}.\n\n` +
       `Messages:\n${text}\n\nSummary:`;
-    return ollamaQueue.add(() => generate(prompt));
+    onProgress?.(0, 1);
+    const result = await ollamaQueue.add(() => generate(prompt));
+    onProgress?.(1, 1);
+    return result;
   }
 
-  // Multiple chunks: map then reduce
+  // Multiple chunks: map then reduce, emit progress as each chunk completes
+  let done = 0;
   const chunkSummaries = await Promise.all(
-    chunks.map((chunk, i) => summariseChunk(chunk, i, chunks.length))
+    chunks.map((chunk, i) =>
+      summariseChunk(chunk, i, chunks.length).then((summary) => {
+        onProgress?.(++done, chunks.length);
+        return summary;
+      })
+    )
   );
 
   return reduceSummaries(chunkSummaries, language);

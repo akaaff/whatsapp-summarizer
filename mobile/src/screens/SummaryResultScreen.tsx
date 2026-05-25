@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, ActivityIndicator, Share,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { getSummary } from '../api/client';
+import { getSummary, subscribeProgress } from '../api/client';
 import { RootStackParamList } from '../navigation/types';
 
 type Status = 'pending' | 'done' | 'failed';
@@ -18,20 +18,27 @@ export default function SummaryResultScreen({ navigation, route }: Props) {
   const { requestId, chatName, language } = route.params;
   const [status, setStatus] = useState<Status>('pending');
   const [result, setResult] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [chunksDone, setChunksDone] = useState(0);
+  const [chunksTotal, setChunksTotal] = useState(0);
 
   useEffect(() => {
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await getSummary(requestId);
-        if (res.data.status !== 'pending') {
-          setStatus(res.data.status);
-          setResult(res.data.result);
-          clearInterval(pollRef.current!);
-        }
-      } catch {}
-    }, 3000);
-    return () => clearInterval(pollRef.current!);
+    const unsubscribe = subscribeProgress(requestId, (event) => {
+      if (event.type === 'progress') {
+        setChunksDone(event.done);
+        setChunksTotal(event.total);
+      } else if (event.type === 'done') {
+        getSummary(requestId)
+          .then((res) => {
+            setResult(res.data.result);
+            setStatus('done');
+          })
+          .catch(() => setStatus('failed'));
+      } else if (event.type === 'error') {
+        setResult(event.message);
+        setStatus('failed');
+      }
+    });
+    return unsubscribe;
   }, [requestId]);
 
   const handleShare = () => {
@@ -39,11 +46,23 @@ export default function SummaryResultScreen({ navigation, route }: Props) {
   };
 
   if (status === 'pending') {
+    const progress = chunksTotal > 1 ? chunksDone / chunksTotal : null;
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#25D366" />
         <Text style={styles.loadingText}>Generating summary in {language}…</Text>
-        <Text style={styles.loadingHint}>This may take up to a minute</Text>
+        {chunksTotal > 1 ? (
+          <>
+            <Text style={styles.chunkText}>
+              Summarising chunk {chunksDone} of {chunksTotal}
+            </Text>
+            <View style={styles.barTrack}>
+              <View style={[styles.barFill, { width: `${Math.round((progress ?? 0) * 100)}%` as any }]} />
+            </View>
+          </>
+        ) : (
+          <Text style={styles.loadingHint}>This may take up to a minute</Text>
+        )}
       </View>
     );
   }
@@ -104,6 +123,9 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   loadingText: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginTop: 20 },
   loadingHint: { fontSize: 13, color: '#888', marginTop: 8 },
+  chunkText: { fontSize: 13, color: '#888', marginTop: 8, marginBottom: 16 },
+  barTrack: { width: '100%', height: 6, backgroundColor: '#e0e0e0', borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: 6, backgroundColor: '#25D366', borderRadius: 3 },
   errorIcon: { fontSize: 48, marginBottom: 12 },
   errorTitle: { fontSize: 18, fontWeight: '700', color: '#c00', marginBottom: 8 },
   errorText: { fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 24 },
