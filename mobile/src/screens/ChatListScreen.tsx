@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { getChats } from '../api/client';
+import { getChats, getStatus } from '../api/client';
 import { RootStackParamList } from '../navigation/types';
 
 type Chat = { chat_id: string; last_message_at: string; message_count: string };
@@ -15,12 +15,14 @@ export default function ChatListScreen({ navigation }: Props) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await getChats();
-      setChats(res.data.chats);
+      const [chatsRes, statusRes] = await Promise.all([getChats(), getStatus()]);
+      setChats(chatsRes.data.chats);
+      setSessionExpired(statusRes.data.status === 'expired');
     } catch {}
     setLoading(false);
     setRefreshing(false);
@@ -39,6 +41,16 @@ export default function ChatListScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      {sessionExpired && (
+        <TouchableOpacity
+          style={styles.expiredBanner}
+          onPress={() => navigation.navigate('LinkWhatsApp')}
+        >
+          <Text style={styles.expiredText}>
+            ⚠️  WhatsApp session expired — tap to re-link
+          </Text>
+        </TouchableOpacity>
+      )}
       {chats.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyIcon}>💬</Text>
@@ -77,6 +89,9 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 56, marginBottom: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 22 },
+  expiredBanner: { backgroundColor: '#FFF3CD', paddingVertical: 12, paddingHorizontal: 16,
+    borderBottomWidth: 1, borderBottomColor: '#FFEAA7' },
+  expiredText: { color: '#856404', fontSize: 14, fontWeight: '500', textAlign: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
   avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#25D366',
