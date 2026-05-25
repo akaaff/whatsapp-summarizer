@@ -113,6 +113,8 @@ class SessionManager extends EventEmitter {
         if (loggedOut) {
           session.status = 'expired';
           this.sessions.delete(userId);
+          // Remove credentials from disk — stale creds cause an immediate re-logout loop
+          fs.rmSync(this.sessionPath(userId), { recursive: true, force: true });
           await pool.query(
             "UPDATE whatsapp_sessions SET status = 'expired' WHERE user_id = $1",
             [userId]

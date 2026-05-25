@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { getQR, getStatus } from '../api/client';
 
-type Status = 'idle' | 'loading' | 'qr_ready' | 'linked' | 'error';
+type Status = 'idle' | 'loading' | 'qr_ready' | 'linked' | 'expired' | 'error';
 
 export default function LinkWhatsAppScreen() {
   const [status, setStatus] = useState<Status>('idle');
@@ -45,9 +45,9 @@ export default function LinkWhatsAppScreen() {
   };
 
   useEffect(() => {
-    // Check current status on mount
     getStatus().then((res) => {
       if (res.data.status === 'linked') setStatus('linked');
+      else if (res.data.status === 'expired') setStatus('expired');
     }).catch(() => {});
     return stopPolling;
   }, []);
@@ -58,6 +58,22 @@ export default function LinkWhatsAppScreen() {
         <Text style={styles.icon}>✅</Text>
         <Text style={styles.title}>WhatsApp Linked</Text>
         <Text style={styles.subtitle}>Your account is connected. Go to Chats to get started.</Text>
+      </View>
+    );
+  }
+
+  if (status === 'expired') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.icon}>⚠️</Text>
+        <Text style={styles.title}>Session Expired</Text>
+        <Text style={styles.subtitle}>
+          Your WhatsApp session was logged out (e.g. from another device).{'\n'}
+          Scan a new QR code to reconnect.
+        </Text>
+        <TouchableOpacity style={styles.button} onPress={fetchQR}>
+          <Text style={styles.buttonText}>Re-link WhatsApp</Text>
+        </TouchableOpacity>
       </View>
     );
   }
