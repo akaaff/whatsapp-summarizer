@@ -12,6 +12,7 @@ import ChatListScreen from '../screens/ChatListScreen';
 import SummaryRequestScreen from '../screens/SummaryRequestScreen';
 import SummaryResultScreen from '../screens/SummaryResultScreen';
 import SummaryHistoryScreen from '../screens/SummaryHistoryScreen';
+import SearchScreen from '../screens/SearchScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -64,6 +65,8 @@ export default function AppNavigator() {
               options={{ title: 'History' }} />
             <Stack.Screen name="LinkWhatsApp" component={LinkWhatsAppScreen}
               options={{ title: 'Link WhatsApp' }} />
+            <Stack.Screen name="Search" component={SearchScreen}
+              options={({ route }) => ({ title: `Search — ${route.params.chatName}` })} />
           </>
         )}
       </Stack.Navigator>

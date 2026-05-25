@@ -1,6 +1,8 @@
 import { pool } from './pool';
 
 const schema = `
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -30,6 +32,16 @@ CREATE TABLE IF NOT EXISTS cached_messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_user_chat_time
   ON cached_messages(user_id, chat_id, timestamp);
+
+CREATE TABLE IF NOT EXISTS message_embeddings (
+  message_id UUID PRIMARY KEY REFERENCES cached_messages(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  chat_id VARCHAR(255) NOT NULL,
+  embedding vector(768) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_embeddings_user_chat
+  ON message_embeddings(user_id, chat_id);
 
 CREATE TABLE IF NOT EXISTS summary_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
